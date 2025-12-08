@@ -30,7 +30,8 @@ class ProcessIO:
     def __init__(self, args: list[str], iocallback: Callable[[str], None] = None, suppress_output: bool = False):
         self.exit_code = None
         self.io = []
-        print(f"run sub-process: {args}")
+        if not suppress_output:
+            print(f"run sub-process: {args}")
         with (Popen(args, stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True) as process):
             while True:
                 if process.poll() is not None:
