@@ -82,7 +82,7 @@ class TailscaleWrapper:
                 else:
                     self._on_disconnected()
             is_up = current
-            sleep(10)
+            sleep(5)
 
     @staticmethod
     def tailscale_is_up() -> bool:
