@@ -8,7 +8,6 @@ import sys
 import os
 from threading import Thread
 from time import sleep
-import fcntl
 
 start_folder = os.getcwd()
 
@@ -140,10 +139,14 @@ class ScalyTail:
         self.tray_icon = QSystemTrayIcon(self._disconnected_icon, self.app)
 
         self.tray_icon.setContextMenu(self.generate_menu(self.app))
+        self.tray_icon.activated.connect(self.clicked)
         self.tray_icon.show()
 
         self.tailscale = TailscaleWrapper(self.on_connecting, self.on_connected, self.on_disconnected)
         sys.exit(self.app.exec())
+
+    def clicked(self):
+        self.tailscale.show_web()
 
     # noinspection PyUnresolvedReferences
     def generate_menu(self, app: QApplication):
