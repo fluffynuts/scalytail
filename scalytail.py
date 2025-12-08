@@ -8,13 +8,18 @@ import sys
 import os
 from threading import Thread
 from time import sleep
+import fcntl
 
 start_folder = os.getcwd()
+
+
 def go_home():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+
 def rewind_chdir():
     os.chdir(start_folder)
+
 
 class ProcessIO:
     def __init__(self, args: list[str], iocallback: Callable[[str], None] = None, suppress_output: bool = False):
@@ -188,6 +193,37 @@ class ScalyTail:
         pass
 
 
+def write_pid_file(pidfile):
+    with open(pidfile, "w") as fp:
+        pid = str(os.getpid())
+        print(f"writing pidfile with pid {pid}")
+        fp.write(pid)
+
+
+def is_already_running():
+    print(f"my pid: {os.getpid()}")
+    pidfile = "/tmp/scalytail.pid"
+    if not os.path.exists(pidfile):
+        print("pidfile not found")
+        write_pid_file(pidfile)
+        return False
+    with open(pidfile, "r") as fp:
+        existing_pid = int(fp.read().strip())
+        print(f"pidfile found with pid {existing_pid}")
+        try:
+            os.kill(existing_pid, 0)
+            print("kill-0 success")
+            print("ScalyTail is already running")
+            return True
+        except ProcessLookupError as e:
+            print(f"kill-0 fails: {e}")
+            write_pid_file(pidfile)
+            return False
+
+
 if __name__ == "__main__":
-    go_home()
-    app = ScalyTail()
+    if is_already_running():
+        sys.exit(1)
+    else:
+        go_home()
+        app = ScalyTail()
