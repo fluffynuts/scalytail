@@ -1,8 +1,14 @@
 #!/bin/env python3
 import subprocess
 from typing import Callable
-from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
-from PyQt6.QtGui import QIcon, QAction
+try:
+    from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+    from PyQt6.QtGui import QIcon, QAction
+    print("using qt6")
+except:
+    from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
+    from PyQt5.QtGui import QIcon
+    print("using qt5")
 from subprocess import Popen, PIPE
 import sys
 import os
