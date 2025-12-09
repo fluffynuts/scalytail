@@ -1,13 +1,19 @@
 #!/bin/env python3
 import subprocess
 from typing import Callable
+
+
 try:
     from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
     from PyQt6.QtGui import QIcon, QAction
+    from PyQt6.QtCore import pyqtSignal, QObject
+
     print("using qt6")
 except:
     from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
     from PyQt5.QtGui import QIcon
+    from PyQt5.QtCore import pyqtSignal, QObject
+
     print("using qt5")
 from subprocess import Popen, PIPE
 import sys
@@ -57,13 +63,13 @@ class ProcessIO:
         return ProcessIO(["xdg-open", url_or_path])
 
 
-class TailscaleWrapper:
-    def __init__(self, on_connecting: Callable[[], None], on_connected: Callable[[], None],
-                 on_disconnected: Callable[[], None]):
-        self._on_connecting = on_connecting
-        self._on_connected = on_connected
-        self._on_disconnected = on_disconnected
+class TailscaleWrapper(QObject):
+    connecting = pyqtSignal()
+    connected = pyqtSignal()
+    disconnected = pyqtSignal()
 
+    def __init__(self):
+        super().__init__()
         self._watcher = Thread(target=self.poll, daemon=True, name="Monitor")
         self._watcher.start()
 
@@ -71,16 +77,16 @@ class TailscaleWrapper:
         is_up = False
         if self.tailscale_is_up():
             is_up = True
-            self._on_connected()
+            self.connected.emit()
         else:
-            self._on_disconnected()
+            self.disconnected.emit()
         while True:
             current = self.tailscale_is_up()
             if is_up != current:
                 if current:
-                    self._on_connected()
+                    self.connected.emit()
                 else:
-                    self._on_disconnected()
+                    self.disconnected.emit()
             is_up = current
             sleep(5)
 
@@ -90,10 +96,21 @@ class TailscaleWrapper:
         return proc.exit_code == 0
 
     def take_down_tailscale(self) -> None:
+        self._run_bg(self.take_down_tailscale_bg)
+
+    def _run_bg(self, target: Callable[[], None]):
+        thread = Thread(target=target, daemon=True)
+        thread.start()
+
+    def take_down_tailscale_bg(self) -> None:
         ProcessIO(["tailscale", "down"])
-        self._on_disconnected()
+        self.disconnected.emit()
 
     def bring_up_tailscale(self) -> None:
+        self.connecting.emit()
+        self._run_bg(self.bring_up_tailscale_bg)
+
+    def bring_up_tailscale_bg(self) -> None:
         user = os.getenv("USER", "")
         args = ["tailscale", "up"]
         if user != "":
@@ -101,20 +118,24 @@ class TailscaleWrapper:
         args.append("--accept-routes")
         proc = ProcessIO(args, lambda line: self._process_line(line))
         if proc.exit_code == 0:
-            self._on_connected()
+            self.connected.emit()
         else:
-            self._on_disconnected()
+            self.disconnected.emit()
 
-    @staticmethod
-    def show_web():
+    def show_web(self):
+        self._run_bg(self.show_web_bg)
+
+    def show_web_bg(self):
         proc = ProcessIO(["tailscale", "web"])
         if proc.exit_code != 0:
-            print("tailscale web error")
+            print(f"tailscale web error: exit code {proc.exit_code}")
             return
         fallback = ""
         for line in proc.io:
             if "starting tailscaled web client" in line:
                 parts = line.split(" ")
+                print(parts)
+                print(parts[-1])
                 ProcessIO.open(parts[-1])
                 return
             if "web server running on" in line:
@@ -149,7 +170,10 @@ class ScalyTail:
         self.tray_icon.activated.connect(self.clicked)
         self.tray_icon.show()
 
-        self.tailscale = TailscaleWrapper(self.on_connecting, self.on_connected, self.on_disconnected)
+        self.tailscale = TailscaleWrapper()
+        self.tailscale.connecting.connect(self.on_connecting)
+        self.tailscale.connected.connect(self.on_connected)
+        self.tailscale.disconnected.connect(self.on_disconnected)
         sys.exit(self.app.exec())
 
     def clicked(self):
