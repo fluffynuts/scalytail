@@ -2,7 +2,6 @@
 import subprocess
 from typing import Callable
 
-
 try:
     from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
     from PyQt6.QtGui import QIcon, QAction
@@ -15,6 +14,7 @@ except:
     from PyQt5.QtCore import pyqtSignal, QObject
 
     print("using qt5")
+
 from subprocess import Popen, PIPE
 import sys
 import os
