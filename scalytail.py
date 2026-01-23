@@ -1,8 +1,16 @@
 #!/bin/env python3
 import subprocess
 from typing import Callable
+import os
+qt5_forced = os.getenv("FORCE_QT5")
+if qt5_forced is None or qt5_forced == "0":
+    force_qt5 = False
+else:
+    force_qt5 = True
 
 try:
+    if force_qt5:
+        raise Exception("qt5 forced")
     from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
     from PyQt6.QtGui import QIcon, QAction
     from PyQt6.QtCore import pyqtSignal, QObject
@@ -12,7 +20,6 @@ except:
     from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
     from PyQt5.QtGui import QIcon
     from PyQt5.QtCore import pyqtSignal, QObject
-
     print("using qt5")
 
 from subprocess import Popen, PIPE
@@ -33,6 +40,9 @@ def rewind_chdir():
 
 
 class ProcessIO:
+    io: list[str]
+    exit_code: int | None
+
     def __init__(self, args: list[str], iocallback: Callable[[str], None] = None, suppress_output: bool = False):
         self.exit_code = None
         self.io = []
@@ -98,7 +108,8 @@ class TailscaleWrapper(QObject):
     def take_down_tailscale(self) -> None:
         self._run_bg(self.take_down_tailscale_bg)
 
-    def _run_bg(self, target: Callable[[], None]):
+    @staticmethod
+    def _run_bg(target: Callable[[], None]):
         thread = Thread(target=target, daemon=True)
         thread.start()
 
@@ -207,9 +218,24 @@ class ScalyTail:
     def show_status(self):
         self.tailscale.show_web()
 
+    @staticmethod
+    def is_logged_out():
+        proc = ProcessIO(["tailscale", "status"])
+        for line in proc.io:
+            lower_line = line.lower()
+            if "logged out" in lower_line:
+                return True
+        return False
+
     def on_connecting(self):
         self._connect_action.setEnabled(False)
         self._connect_action.setText("Connecting...")
+        message = "Bringing tailscale up..."
+        if self.is_logged_out():
+            message +=  """
+                        Please wait for the login page to open in your browser
+                        """
+        self.tray_icon.showMessage("Connecting...", message, icon= QSystemTrayIcon.MessageIcon.Information)
         self.tray_icon.setIcon(self._connecting_icon)
 
     def on_connected(self):
