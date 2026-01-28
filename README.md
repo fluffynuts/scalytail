@@ -15,6 +15,17 @@ Click the tray icon to show the tailscale web status page (same as right-click -
 
 ![screenshot.png](screenshot.png)
 
+Pre-requisites
+---
+You must have tailscaled already installed and running. I highly suggest
+running from within a console the first time to check for any errors. This
+app requires that tailscale will accept `--operator={your user name}` on the
+commandline, so at some point, you will need to issue the following command:
+```
+sudo tailscale set --operator={your user name}
+```
+eg: `sudo tailscale set --operator=billybob`
+
 Installation
 ---
 1. clone the repo somewhere
