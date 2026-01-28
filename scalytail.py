@@ -171,6 +171,7 @@ class ScalyTail:
     def __init__(self):
         self._status_action = None
         self._connect_action = None
+        self._about_action = None
 
         self.app = QApplication(sys.argv)
         self.app.setApplicationName("ScalyTail")
@@ -211,6 +212,11 @@ class ScalyTail:
         result.addAction(self._status_action)
 
         result.addSeparator()
+        self._about_action = QAction("About", app)
+        self._about_action.triggered.connect(self.show_about)
+        result.addAction(self._about_action)
+
+        result.addSeparator()
         exit_action = QAction("Exit", app)
         exit_action.triggered.connect(app.quit)
         result.addAction(exit_action)
@@ -225,6 +231,9 @@ class ScalyTail:
 
     def show_status(self):
         self.tailscale.show_web()
+
+    def show_about(self):
+        ProcessIO.open("https://github.com/fluffynuts/scalytail")
 
     @staticmethod
     def is_logged_out():
