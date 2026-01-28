@@ -18,8 +18,11 @@ Click the tray icon to show the tailscale web status page (same as right-click -
 Installation
 ---
 1. clone the repo somewhere
-2. ensure you have either pyqt6 or pyqt6 installed
+2. ensure you have either pyqt6 or pyqt6 installed (the app supports both)
     - on arch-based systems, `pacman -S python-pyqt6`
     - on deb-based systems, `apt install pyqt5-dev` or `apt install pyqt6-dev`
     - on gentoo systems, `emerge pyqt6`
 3. you should be able to start with `./scalytail.py`
+4. on linux machines, this should also attempt to install a .desktop file
+   at ~/local/share/applications so you should be able to launch from your
+   system menu, and notifications look good.
