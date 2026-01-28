@@ -1,6 +1,8 @@
 #!/bin/env python3
+import shutil
 import subprocess
 from typing import Callable
+import pathlib
 import os
 qt5_forced = os.getenv("FORCE_QT5")
 if qt5_forced is None or qt5_forced == "0":
@@ -14,8 +16,8 @@ try:
     from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
     from PyQt6.QtGui import QIcon, QAction
     from PyQt6.QtCore import pyqtSignal, QObject
-
     print("using qt6")
+
 except:
     from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
     from PyQt5.QtGui import QIcon
@@ -171,9 +173,15 @@ class ScalyTail:
         self._connect_action = None
 
         self.app = QApplication(sys.argv)
+        self.app.setApplicationName("ScalyTail")
+        self.app.setApplicationDisplayName("Scaly Tail")
+        self.app.setDesktopFileName("scalytail")
+
         self._disconnected_icon = QIcon("disconnected.png")
         self._connecting_icon = QIcon("connecting.png")
         self._connected_icon = QIcon("connected.png")
+
+        self.app.setWindowIcon(self._disconnected_icon)
 
         self.tray_icon = QSystemTrayIcon(self._disconnected_icon, self.app)
 
@@ -236,21 +244,25 @@ class ScalyTail:
                         Please wait for the login page to open in your browser
                         """
         self.tray_icon.showMessage("Connecting...", message, icon= QSystemTrayIcon.MessageIcon.Information)
-        self.tray_icon.setIcon(self._connecting_icon)
+        self.set_icon(self._connecting_icon)
 
     def on_connected(self):
         self._connect_action.setEnabled(True)
         self._connect_action.setText("Disconnect")
-        self.tray_icon.setIcon(self._connected_icon)
+        self.set_icon(self._connected_icon)
 
     def on_disconnected(self):
         self._connect_action.setEnabled(True)
         self._connect_action.setText("Connect")
-        self.tray_icon.setIcon(self._disconnected_icon)
+        self.set_icon(self._disconnected_icon)
 
     def tray_icon_activated(self, reason: str):
         print(f"tray activated: {reason}")
         pass
+
+    def set_icon(self, icon: QIcon):
+        self.app.setWindowIcon(icon)
+        self.tray_icon.setIcon(icon)
 
 
 def write_pid_file(pidfile):
@@ -280,8 +292,25 @@ def is_already_running():
             write_pid_file(pidfile)
             return False
 
+def install_application_menu_item_if_necessary():
+    if sys.platform == "win32" or sys.platform == "darwin":
+        print("warning: no menu shortcut will be created - only supported on linux for now")
+        return
+    home = pathlib.Path.home()
+    target = os.path.join(home, ".local", "share", "applications", "scalytail.desktop")
+    if os.path.isfile(target):
+        print(f".desktop file already found at: {target}")
+        return
+    my_dir = str(pathlib.Path(__file__).resolve().parent)
+    source = os.path.join(my_dir, "scalytail.desktop")
+    if not os.path.isfile(source):
+        print(f"warning: unable to install desktop file: not found at '{source}'");
+        return
+    shutil.copyfile(source, target)
+    print(f"installed desktop file at: {target}")
 
 if __name__ == "__main__":
+    install_application_menu_item_if_necessary()
     if is_already_running():
         sys.exit(1)
     else:

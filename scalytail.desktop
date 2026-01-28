@@ -1,0 +1,13 @@
+[Desktop Entry]
+Comment=
+Exec=$INSTALL_PATH$/scalytail.py
+Icon=$INSTALL_PATH$/connected.png
+Name=scalytail
+NoDisplay=false
+Path=
+StartupNotify=true
+Terminal=false
+TerminalOptions=
+Type=Application
+X-KDE-SubstituteUID=false
+X-KDE-Username=
