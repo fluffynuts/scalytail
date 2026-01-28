@@ -35,5 +35,5 @@ Installation
     - on gentoo systems, `emerge pyqt6`
 3. you should be able to start with `./scalytail.py`
 4. on linux machines, this should also attempt to install a .desktop file
-   at ~/local/share/applications so you should be able to launch from your
+   at `~/.local/share/applications` so you should be able to launch from your
    system menu, and notifications look good.
