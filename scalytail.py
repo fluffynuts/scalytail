@@ -306,7 +306,13 @@ def install_application_menu_item_if_necessary():
     if not os.path.isfile(source):
         print(f"warning: unable to install desktop file: not found at '{source}'");
         return
-    shutil.copyfile(source, target)
+    with open(source, "r", encoding="utf-8") as fp:
+        source_lines = fp.read().splitlines()
+
+    with open(target, "w", encoding="utf-8", newline=None) as fp:
+        for line in source_lines:
+            to_write = line.replace("$INSTALL_PATH$", my_dir)
+            fp.write(f"{to_write}\n")
     print(f"installed desktop file at: {target}")
 
 if __name__ == "__main__":
