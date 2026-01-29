@@ -182,6 +182,8 @@ class ScalyTail(QObject):
         self._status_action = None
         self._connect_action = None
         self._about_action = None
+        self._changelog_action = None
+        self.updater = Updater()
 
         self.app = QApplication(sys.argv)
         self.app.setApplicationName("ScalyTail")
@@ -220,13 +222,18 @@ class ScalyTail(QObject):
         self._run_bg(self.attempt_auto_update_bg)
 
     def attempt_auto_update_bg(self):
-        updater = Updater()
-        if updater.auto_update():
+        if self.updater.auto_update():
             self.updated.emit()
 
     def show_updated_message(self):
-        print("catch emission")
-        self.tray_icon.showMessage("ScalyTail has been updated!", "Please restart to run the latest version")
+        self.tray_icon.showMessage(
+            "ScalyTail has been updated!",
+            "Please restart to run the latest version. You may view the changelog via the tray icon menu."
+        )
+
+    def open_commits_page(self):
+        print("should open commits page")
+        ProcessIO.open("https://github.com/fluffynuts/commits")
 
     # noinspection PyUnresolvedReferences
     def generate_menu(self, app: QApplication):
@@ -245,12 +252,19 @@ class ScalyTail(QObject):
         self._about_action.triggered.connect(self.show_about)
         result.addAction(self._about_action)
 
+        self._changelog_action = QAction("Changelog", app)
+        self._changelog_action.triggered.connect(self.show_changelog)
+        result.addAction(self._changelog_action)
+
         result.addSeparator()
         exit_action = QAction("Exit", app)
         exit_action.triggered.connect(app.quit)
         result.addAction(exit_action)
 
         return result
+
+    def show_changelog(self):
+        ProcessIO.open("https://github.com/fluffynuts/scalytail/commits")
 
     def toggle_connection(self):
         if self._connect_action.text() == "Connect":
@@ -350,6 +364,9 @@ def install_application_menu_item_if_necessary():
     print(f"installed desktop file at: {target}")
 
 class Updater:
+    def __init__(self):
+        self.changelog = None
+
     @staticmethod
     def env_flag(name: str) -> bool:
         value = os.getenv(name)
@@ -383,7 +400,19 @@ class Updater:
         if not self.pull_and_rebase():
             return False
         after_sha = self.read_current_sha()
+        self.changelog = self.read_changelog(before_sha, after_sha)
+        print(f"changelog:\n{self.changelog}")
         return before_sha != after_sha
+
+    @staticmethod
+    def read_changelog(before_sha, after_sha) -> str:
+        lines = ProcessIO.exec([
+            "git",
+            "log",
+            f"{before_sha}..{after_sha}",
+            "--pretty=format:\"%an <%ae> %s\""
+        ])
+        return "\n".join(lines)
 
 if __name__ == "__main__":
     install_application_menu_item_if_necessary()
