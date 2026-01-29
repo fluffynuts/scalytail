@@ -74,6 +74,16 @@ class ProcessIO:
     def open(url_or_path: str):
         return ProcessIO(["xdg-open", url_or_path])
 
+    @staticmethod
+    def exec(args: list[str]):
+        proc = ProcessIO(args, suppress_output=True)
+        if proc.exit_code == 0:
+            return proc.io
+        print(f"process launch fails: {args}")
+        for line in proc.io:
+            print(line)
+        return None
+
 
 class TailscaleWrapper(QObject):
     connecting = pyqtSignal()
@@ -164,8 +174,11 @@ class TailscaleWrapper(QObject):
             ProcessIO.open(trimmed)
 
 
-class ScalyTail:
+class ScalyTail(QObject):
+    updated = pyqtSignal()
+
     def __init__(self):
+        super().__init__()
         self._status_action = None
         self._connect_action = None
         self._about_action = None
@@ -191,10 +204,29 @@ class ScalyTail:
         self.tailscale.connecting.connect(self.on_connecting)
         self.tailscale.connected.connect(self.on_connected)
         self.tailscale.disconnected.connect(self.on_disconnected)
+        self.attempt_auto_update()
         sys.exit(self.app.exec())
 
     def clicked(self):
         self.tailscale.show_web()
+
+    @staticmethod
+    def _run_bg(target: Callable[[], None]):
+        thread = Thread(target=target, daemon=True)
+        thread.start()
+
+    def attempt_auto_update(self):
+        self.updated.connect(self.show_updated_message)
+        self._run_bg(self.attempt_auto_update_bg)
+
+    def attempt_auto_update_bg(self):
+        updater = Updater()
+        if updater.auto_update():
+            self.updated.emit()
+
+    def show_updated_message(self):
+        print("catch emission")
+        self.tray_icon.showMessage("ScalyTail has been updated!", "Please restart to run the latest version")
 
     # noinspection PyUnresolvedReferences
     def generate_menu(self, app: QApplication):
@@ -316,6 +348,39 @@ def install_application_menu_item_if_necessary():
             to_write = line.replace("$INSTALL_PATH$", my_dir)
             fp.write(f"{to_write}\n")
     print(f"installed desktop file at: {target}")
+
+class Updater:
+    @staticmethod
+    def env_flag(name: str) -> bool:
+        value = os.getenv(name)
+        if value is None:
+            return False
+        lvalue = value.lower()
+        return lvalue in ["1", "yes", "enabled", "true" ]
+
+    @staticmethod
+    def read_current_sha() -> str | None:
+        output = ProcessIO.exec(["git", "rev-parse", "HEAD"])
+        if output is None:
+            return None
+        return output[0]
+
+    def pull_and_rebase(self) -> bool:
+        proc = ProcessIO(["git", "pull", "--rebase"]);
+        if proc.exit_code != 0:
+            print("WARNING: unable to self-update via git pull --rebase")
+        return proc.exit_code == 0
+
+    def auto_update(self) -> bool:
+        if not self.env_flag("SCALYTAIL_AUTOUPDATE"):
+            return False
+        if shutil.which("git") is None:
+            return False
+        before_sha = self.read_current_sha()
+        if not self.pull_and_rebase():
+            return False
+        after_sha = self.read_current_sha()
+        return before_sha != after_sha
 
 if __name__ == "__main__":
     install_application_menu_item_if_necessary()
