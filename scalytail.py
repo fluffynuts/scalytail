@@ -140,9 +140,6 @@ class TailscaleWrapper(QObject):
 
     def show_web_bg(self):
         proc = ProcessIO(["tailscale", "web"])
-        if proc.exit_code != 0:
-            print(f"tailscale web error: exit code {proc.exit_code}")
-            return
         fallback = ""
         for line in proc.io:
             if "starting tailscaled web client" in line:
@@ -264,10 +261,6 @@ class ScalyTail:
         self._connect_action.setEnabled(True)
         self._connect_action.setText("Connect")
         self.set_icon(self._disconnected_icon)
-
-    def tray_icon_activated(self, reason: str):
-        print(f"tray activated: {reason}")
-        pass
 
     def set_icon(self, icon: QIcon):
         self.app.setWindowIcon(icon)
