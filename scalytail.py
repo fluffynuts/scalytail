@@ -372,7 +372,10 @@ class Updater:
         return proc.exit_code == 0
 
     def auto_update(self) -> bool:
-        if not self.env_flag("SCALYTAIL_AUTOUPDATE"):
+        allowed_on_env = self.env_flag("SCALYTAIL_AUTOUPDATE")
+        allowed_on_cli = "--auto-update" in sys.argv
+        allowed = allowed_on_env or allowed_on_cli
+        if not allowed:
             return False
         if shutil.which("git") is None:
             return False

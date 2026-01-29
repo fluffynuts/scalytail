@@ -37,3 +37,9 @@ Installation
 4. on linux machines, this should also attempt to install a .desktop file
    at `~/.local/share/applications` so you should be able to launch from your
    system menu, and notifications look good.
+
+
+
+
+
+
