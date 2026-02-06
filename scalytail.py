@@ -13,15 +13,15 @@ else:
 try:
     if force_qt5:
         raise Exception("qt5 forced")
-    from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
-    from PyQt6.QtGui import QIcon, QAction
-    from PyQt6.QtCore import pyqtSignal, QObject
+    from PyQt6.QtWidgets import *
+    from PyQt6.QtGui import *
+    from PyQt6.QtCore import *
     print("using qt6")
 
 except:
-    from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
-    from PyQt5.QtGui import QIcon
-    from PyQt5.QtCore import pyqtSignal, QObject
+    from PyQt5.QtWidgets import *
+    from PyQt5.QtGui import *
+    from PyQt5.QtCore import *
     print("using qt5")
 
 from subprocess import Popen, PIPE
