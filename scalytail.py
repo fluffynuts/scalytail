@@ -92,30 +92,38 @@ class TailscaleWrapper(QObject):
 
     def __init__(self):
         super().__init__()
+        self._connected = False
         self._watcher = Thread(target=self.poll, daemon=True, name="Monitor")
         self._watcher.start()
 
     def poll(self):
-        is_up = False
+        self._connected = False
         if self.tailscale_is_up():
-            is_up = True
+            self._connected = True
             self.connected.emit()
         else:
             self.disconnected.emit()
         while True:
             current = self.tailscale_is_up()
-            if is_up != current:
+            if self._connected != current:
                 if current:
                     self.connected.emit()
                 else:
                     self.disconnected.emit()
-            is_up = current
+            self._connected = current
             sleep(5)
 
     @staticmethod
     def tailscale_is_up() -> bool:
         proc = ProcessIO(["tailscale", "status"], suppress_output=True)
         return proc.exit_code == 0
+
+    def log_in_if_not_connected(self) -> bool:
+        print(f"connected: {self._connected}")
+        if self._connected:
+            return False
+        self.bring_up_tailscale()
+        return True
 
     def take_down_tailscale(self) -> None:
         self._run_bg(self.take_down_tailscale_bg)
@@ -210,7 +218,8 @@ class ScalyTail(QObject):
         sys.exit(self.app.exec())
 
     def clicked(self):
-        self.tailscale.show_web()
+        if not self.tailscale.log_in_if_not_connected():
+            self.tailscale.show_web()
 
     @staticmethod
     def _run_bg(target: Callable[[], None]):
@@ -244,7 +253,7 @@ class ScalyTail(QObject):
         result.addAction(self._connect_action)
 
         self._status_action = QAction("Status", app)
-        self._status_action.triggered.connect(self.show_status)
+        self._status_action.triggered.connect(self.on_tray_icon_triggered)
         result.addAction(self._status_action)
 
         result.addSeparator()
@@ -272,8 +281,9 @@ class ScalyTail(QObject):
         else:
             self.tailscale.take_down_tailscale()
 
-    def show_status(self):
-        self.tailscale.show_web()
+    def on_tray_icon_triggered(self):
+        if not self.tailscale.log_in_if_not_connected():
+            self.tailscale.show_web()
 
     def show_about(self):
         ProcessIO.open("https://github.com/fluffynuts/scalytail")
