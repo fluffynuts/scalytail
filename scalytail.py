@@ -2,8 +2,10 @@
 import shutil
 import subprocess
 from typing import Callable
-import pathlib
 import os
+import configparser
+from pathlib import Path
+
 qt5_forced = os.getenv("FORCE_QT5")
 if qt5_forced is None or qt5_forced == "0":
     force_qt5 = False
@@ -119,7 +121,6 @@ class TailscaleWrapper(QObject):
         return proc.exit_code == 0
 
     def log_in_if_not_connected(self) -> bool:
-        print(f"connected: {self._connected}")
         if self._connected:
             return False
         self.bring_up_tailscale()
@@ -187,6 +188,7 @@ class ScalyTail(QObject):
 
     def __init__(self):
         super().__init__()
+        self.ignore_next_disconnect = False
         self._status_action = None
         self._connect_action = None
         self._about_action = None
@@ -215,7 +217,14 @@ class ScalyTail(QObject):
         self.tailscale.connected.connect(self.on_connected)
         self.tailscale.disconnected.connect(self.on_disconnected)
         self.attempt_auto_update()
+        self.observe_config()
         sys.exit(self.app.exec())
+
+    def observe_config(self):
+        config = Options()
+        config.persist()
+        if config.connect_at_start:
+            self.clicked()
 
     def clicked(self):
         if not self.tailscale.log_in_if_not_connected():
@@ -279,6 +288,7 @@ class ScalyTail(QObject):
         if self._connect_action.text() == "Connect":
             self.tailscale.bring_up_tailscale()
         else:
+            self.ignore_next_disconnect = True
             self.tailscale.take_down_tailscale()
 
     def on_tray_icon_triggered(self):
@@ -314,9 +324,14 @@ class ScalyTail(QObject):
         self.set_icon(self._connected_icon)
 
     def on_disconnected(self):
-        self._connect_action.setEnabled(True)
-        self._connect_action.setText("Connect")
-        self.set_icon(self._disconnected_icon)
+        options = Options()
+        if self.ignore_next_disconnect or not options.auto_reconnect:
+            self._connect_action.setEnabled(True)
+            self._connect_action.setText("Connect")
+            self.set_icon(self._disconnected_icon)
+        if not self.ignore_next_disconnect and options.auto_reconnect:
+            self.click()
+        self.ignore_next_disconnect = False
 
     def set_icon(self, icon: QIcon):
         self.app.setWindowIcon(icon)
@@ -354,12 +369,12 @@ def install_application_menu_item_if_necessary():
     if sys.platform == "win32" or sys.platform == "darwin":
         print("warning: no menu shortcut will be created - only supported on linux for now")
         return
-    home = pathlib.Path.home()
+    home = Path.home()
     target = os.path.join(home, ".local", "share", "applications", "scalytail.desktop")
     if os.path.isfile(target):
         print(f".desktop file already found at: {target}")
         return
-    my_dir = str(pathlib.Path(__file__).resolve().parent)
+    my_dir = str(Path(__file__).resolve().parent)
     source = os.path.join(my_dir, "scalytail.desktop")
     if not os.path.isfile(source):
         print(f"warning: unable to install desktop file: not found at '{source}'");
@@ -423,6 +438,38 @@ class Updater:
             "--pretty=format:\"%an <%ae> %s\""
         ])
         return "\n".join(lines)
+
+class Options:
+    def __init__(self):
+        self.auto_reconnect = False
+        self.connect_at_start = False
+        self.config_path = os.path.join(Path.home(), ".config", "scalytail.ini")
+        self.load_config()
+
+    def load_config(self):
+        config = configparser.ConfigParser()
+        config.read(self.config_path)
+        if "options" not in config:
+            return
+        options = config["options"]
+        self.connect_at_start = options.getboolean(
+            "connect_at_start",
+            fallback=self.connect_at_start
+        )
+        self.auto_reconnect = options.getboolean(
+            "auto_reconnect",
+            fallback=self.auto_reconnect
+        )
+
+    def persist(self):
+        config = configparser.ConfigParser()
+        config.add_section("options")
+        options = config["options"];
+        options["connect_at_start"] = str(self.connect_at_start)
+        options["auto_reconnect"] = str(self.auto_reconnect)
+        with open(self.config_path, "w") as fp:
+            config.write(fp)
+
 
 if __name__ == "__main__":
     install_application_menu_item_if_necessary()
