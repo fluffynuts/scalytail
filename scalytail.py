@@ -193,6 +193,8 @@ class ScalyTail(QObject):
         self._connect_action = None
         self._about_action = None
         self._changelog_action = None
+        self._connect_on_start = None
+        self._auto_reconnect = None
         self.updater = Updater()
 
         self.app = QApplication(sys.argv)
@@ -275,13 +277,44 @@ class ScalyTail(QObject):
         result.addAction(self._changelog_action)
 
         result.addSeparator()
+        options = Options()
+        self._connect_on_start = QAction("Connect at start", app)
+        self._connect_on_start.setCheckable(True)
+        self._connect_on_start.setChecked(options.connect_at_start)
+        self._connect_on_start.triggered.connect(self.toggle_connect_on_start)
+        result.addAction(self._connect_on_start)
+
+        self._auto_reconnect = QAction("Auto-reconnect when disconnected", app)
+        self._auto_reconnect.setCheckable(True)
+        self._auto_reconnect.setChecked(options.auto_reconnect)
+        self._auto_reconnect.triggered.connect(self.toggle_auto_reconnect)
+        print(self._auto_reconnect.toolTip())
+        result.addAction(self._auto_reconnect)
+
+        result.addSeparator()
         exit_action = QAction("Exit", app)
         exit_action.triggered.connect(app.quit)
         result.addAction(exit_action)
 
+        result.setToolTipsVisible(True)
         return result
 
-    def show_changelog(self):
+    @staticmethod
+    def toggle_auto_reconnect(checked: bool):
+        options = Options()
+        options.auto_reconnect = checked
+        print(f"setting options.auto_reconnect to {checked}")
+        options.persist()
+
+    @staticmethod
+    def toggle_connect_on_start(checked: bool):
+        options = Options()
+        options.connect_at_start = checked
+        print(f"setting options.connect_at_start to {checked}")
+        options.persist()
+
+    @staticmethod
+    def show_changelog():
         ProcessIO.open("https://github.com/fluffynuts/scalytail/commits")
 
     def toggle_connection(self):
@@ -330,7 +363,7 @@ class ScalyTail(QObject):
             self._connect_action.setText("Connect")
             self.set_icon(self._disconnected_icon)
         if not self.ignore_next_disconnect and options.auto_reconnect:
-            self.click()
+            self.clicked()
         self.ignore_next_disconnect = False
 
     def set_icon(self, icon: QIcon):
