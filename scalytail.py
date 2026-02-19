@@ -94,6 +94,7 @@ class TailscaleWrapper(QObject):
 
     def __init__(self):
         super().__init__()
+        self.have_polled = False
         self._connected = False
         self._watcher = Thread(target=self.poll, daemon=True, name="Monitor")
         self._watcher.start()
@@ -104,25 +105,35 @@ class TailscaleWrapper(QObject):
             self._connected = True
             self.connected.emit()
         else:
-            self.disconnected.emit()
+            if self._connected:
+                print("emit disconnected(1)")
+                self.disconnected.emit()
+            self._connected = False
         while True:
             current = self.tailscale_is_up()
             if self._connected != current:
                 if current:
                     self.connected.emit()
                 else:
+                    print("emit disconnected (2)")
                     self.disconnected.emit()
             self._connected = current
             sleep(5)
 
-    @staticmethod
-    def tailscale_is_up() -> bool:
+    def tailscale_is_up(self) -> bool:
         proc = ProcessIO(["tailscale", "status"], suppress_output=True)
-        return proc.exit_code == 0
+        result = proc.exit_code == 0
+        self.have_polled = True
+        return result
 
     def log_in_if_not_connected(self) -> bool:
+        while not self.have_polled:
+            print("waiting for first poll")
+            sleep(0.2)
         if self._connected:
+            print(" -> already connected")
             return False
+        print("bringing up tailscale")
         self.bring_up_tailscale()
         return True
 
@@ -136,6 +147,8 @@ class TailscaleWrapper(QObject):
 
     def take_down_tailscale_bg(self) -> None:
         ProcessIO(["tailscale", "down"])
+        self._connected = False
+        print("emit disconnected (3)")
         self.disconnected.emit()
 
     def bring_up_tailscale(self) -> None:
@@ -170,6 +183,7 @@ class TailscaleWrapper(QObject):
             if "web server running on" in line:
                 parts = line.split(" ")
                 fallback = parts[-1]
+        print(f"should open: {fallback}")
         if fallback != "":
             ProcessIO.open(fallback)
         else:
@@ -226,7 +240,7 @@ class ScalyTail(QObject):
         config = Options()
         config.persist()
         if config.connect_at_start:
-            self.clicked()
+            self.tailscale.log_in_if_not_connected()
 
     def clicked(self):
         if not self.tailscale.log_in_if_not_connected():
@@ -288,7 +302,6 @@ class ScalyTail(QObject):
         self._auto_reconnect.setCheckable(True)
         self._auto_reconnect.setChecked(options.auto_reconnect)
         self._auto_reconnect.triggered.connect(self.toggle_auto_reconnect)
-        print(self._auto_reconnect.toolTip())
         result.addAction(self._auto_reconnect)
 
         result.addSeparator()
@@ -358,12 +371,14 @@ class ScalyTail(QObject):
 
     def on_disconnected(self):
         options = Options()
+        print(f"ignore_next_disconnect: {self.ignore_next_disconnect}")
+        print(f"auto_reconnect: {options.auto_reconnect}")
         if self.ignore_next_disconnect or not options.auto_reconnect:
             self._connect_action.setEnabled(True)
             self._connect_action.setText("Connect")
             self.set_icon(self._disconnected_icon)
         if not self.ignore_next_disconnect and options.auto_reconnect:
-            self.clicked()
+            self.tailscale.log_in_if_not_connected()
         self.ignore_next_disconnect = False
 
     def set_icon(self, icon: QIcon):
