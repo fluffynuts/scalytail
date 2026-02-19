@@ -106,7 +106,6 @@ class TailscaleWrapper(QObject):
             self.connected.emit()
         else:
             if self._connected:
-                print("emit disconnected(1)")
                 self.disconnected.emit()
             self._connected = False
         while True:
@@ -115,7 +114,6 @@ class TailscaleWrapper(QObject):
                 if current:
                     self.connected.emit()
                 else:
-                    print("emit disconnected (2)")
                     self.disconnected.emit()
             self._connected = current
             sleep(5)
@@ -148,7 +146,6 @@ class TailscaleWrapper(QObject):
     def take_down_tailscale_bg(self) -> None:
         ProcessIO(["tailscale", "down"])
         self._connected = False
-        print("emit disconnected (3)")
         self.disconnected.emit()
 
     def bring_up_tailscale(self) -> None:
@@ -298,7 +295,7 @@ class ScalyTail(QObject):
         self._connect_on_start.triggered.connect(self.toggle_connect_on_start)
         result.addAction(self._connect_on_start)
 
-        self._auto_reconnect = QAction("Auto-reconnect when disconnected", app)
+        self._auto_reconnect = QAction("Auto-reconnect when session times out", app)
         self._auto_reconnect.setCheckable(True)
         self._auto_reconnect.setChecked(options.auto_reconnect)
         self._auto_reconnect.triggered.connect(self.toggle_auto_reconnect)
