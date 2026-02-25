@@ -295,7 +295,7 @@ class ScalyTail(QObject):
         self._connect_on_start.triggered.connect(self.toggle_connect_on_start)
         result.addAction(self._connect_on_start)
 
-        self._auto_reconnect = QAction("Auto-reconnect when session times out", app)
+        self._auto_reconnect = QAction("Auto-reconnect when session expires", app)
         self._auto_reconnect.setCheckable(True)
         self._auto_reconnect.setChecked(options.auto_reconnect)
         self._auto_reconnect.triggered.connect(self.toggle_auto_reconnect)
